@@ -52,11 +52,53 @@ class EASource internal constructor() : EASService {
                     session.newRequest("https://ids.hit.edu.cn/authserver/combinedLogin.do?type=IDSUnion&appId=ff2dfca3a2a2448e9026a8c6e38fa52b&success=http%3A%2F%2Fjw.hitsz.edu.cn%2FcasLogin")
                         .get()
 
-                val url = "https://sso.hitsz.edu.cn:7002" + doc1.select("#authZForm").first()
-                    .attr("action")
-                val client_id: String = doc1.select("input[name=client_id]").first().attr("value")
-                val scope: String = doc1.select("input[name=scope]").first().attr("value")
-                val state: String = doc1.select("input[name=state]").first().attr("value")
+                var authDoc = doc1
+                var authForm = authDoc.select("#authZForm").first()
+                if (authForm == null) {
+                    for (f in authDoc.select("form")) {
+                        if (f.selectFirst("input[name=client_id]") != null) {
+                            authForm = f
+                            break
+                        }
+                    }
+                }
+                if (authForm == null) {
+                    val redirectUrl = extractRedirectUrl(authDoc)
+                    if (!redirectUrl.isNullOrBlank()) {
+                        authDoc = session.newRequest(redirectUrl).get()
+                        authForm = authDoc.select("#authZForm").first()
+                        if (authForm == null) {
+                            for (f in authDoc.select("form")) {
+                                if (f.selectFirst("input[name=client_id]") != null) {
+                                    authForm = f
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+                if (authForm == null) {
+                    val debug = summarizeForms(authDoc)
+                    res.postValue(
+                        DataState(
+                            DataState.STATE.FETCH_FAILED,
+                            "auth form not found. base=${authDoc.baseUri()} forms=$debug"
+                        )
+                    )
+                    return@Thread
+                }
+                val action = authForm.attr("action")
+                val url = resolveUrl(authDoc.baseUri(), action)
+                val clientEl = authForm.selectFirst("input[name=client_id]") ?: authDoc.select("input[name=client_id]").first()
+                val scopeEl = authForm.selectFirst("input[name=scope]") ?: authDoc.select("input[name=scope]").first()
+                val stateEl = authForm.selectFirst("input[name=state]") ?: authDoc.select("input[name=state]").first()
+                if (clientEl == null || scopeEl == null || stateEl == null) {
+                    res.postValue(DataState(DataState.STATE.FETCH_FAILED, "missing auth params"))
+                    return@Thread
+                }
+                val client_id: String = clientEl.attr("value")
+                val scope: String = scopeEl.attr("value")
+                val state: String = stateEl.attr("value")
 
                 val resp3: Connection.Response = session.newRequest(url).data("action", "authorize")
                     .data("response_type", "code")
@@ -66,7 +108,45 @@ class EASource internal constructor() : EASService {
                     .data("state", state)
                     .data("username", username)
                     .data("password", password).method(Connection.Method.POST).execute()
-                val login = resp3.url().file == "/authentication/main"
+                var login = resp3.url().file == "/authentication/main"
+                var finalResp = resp3
+                val otpCode = code?.trim()?.ifEmpty { null }
+                if (!login && !otpCode.isNullOrEmpty()) {
+                    val docOtp = resp3.parse()
+                    if (isReAuthPage(docOtp)) {
+                        submitReAuthSms(session, docOtp, otpCode)?.let { r ->
+                            finalResp = r
+                            login = finalResp.url().file == "/authentication/main"
+                        }
+                    }
+                    if (!login) {
+                        val otpForm = findOtpForm(docOtp)
+                        if (otpForm != null) {
+                            val method = otpForm.attr("method")
+                            val action = otpForm.attr("action")
+                            val actionUrl = resolveUrl(resp3.url().toString(), action)
+                            var req = session.newRequest(actionUrl)
+                            var codeFilled = false
+                            for (input in otpForm.select("input[name]")) {
+                                val name = input.attr("name")
+                                if (name.isBlank()) continue
+                                var value = input.attr("value")
+                                if (!codeFilled && isOtpField(name)) {
+                                    value = otpCode
+                                    codeFilled = true
+                                }
+                                req = req.data(name, value)
+                            }
+                            if (!codeFilled) {
+                                req = req.data("otp", otpCode)
+                            }
+                            finalResp = req.method(
+                                if (method.equals("post", true)) Connection.Method.POST else Connection.Method.GET
+                            ).execute()
+                            login = finalResp.url().file == "/authentication/main"
+                        }
+                    }
+                }
                 val cookies: HashMap<String, String> = HashMap()
 
                 if (login) {
@@ -102,11 +182,17 @@ class EASource internal constructor() : EASService {
                     token.name = jo?.optString("XM")
                     res.postValue(DataState(token, DataState.STATE.SUCCESS))
                 } else {
-                    res.postValue(DataState(DataState.STATE.FETCH_FAILED))
+                    val errMsg = extractErrorFromResponse(finalResp)
+                    res.postValue(
+                        DataState(
+                            DataState.STATE.FETCH_FAILED,
+                            errMsg ?: "login failed (status=${finalResp.statusCode()}, url=${finalResp.url()})"
+                        )
+                    )
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                res.postValue(DataState(DataState.STATE.FETCH_FAILED))
+                res.postValue(DataState(DataState.STATE.FETCH_FAILED, e.message))
             }
         }.start()
         return res
@@ -755,6 +841,141 @@ class EASource internal constructor() : EASService {
             }
         }.start()
         return res
+    }
+
+    private fun findOtpForm(doc: Document): org.jsoup.nodes.Element? {
+        for (form in doc.select("form")) {
+            for (input in form.select("input[name]")) {
+                val name = input.attr("name")
+                if (isOtpField(name)) return form
+            }
+        }
+        return null
+    }
+
+    private fun isOtpField(name: String): Boolean {
+        val key = name.lowercase(Locale.ROOT)
+        return key.contains("dynamiccode") ||
+                key.contains("sms") ||
+                key.contains("otp") ||
+                key.contains("totp") ||
+                key.contains("authcode") ||
+                (key.contains("code") && !key.contains("barcode"))
+    }
+
+    private fun isReAuthPage(doc: Document): Boolean {
+        if (doc.selectFirst("input#dynamicCode[name=dynamicCode]") != null) return true
+        for (script in doc.select("script")) {
+            val data = script.data().ifEmpty { script.html() }
+            if (data.contains("var reAuthParams")) return true
+        }
+        return false
+    }
+
+    private fun submitReAuthSms(
+        session: Connection,
+        doc: Document,
+        code: String
+    ): Connection.Response? {
+        val params = extractReAuthParams(doc)
+        if (params.isEmpty()) return null
+        val serverPrefix = extractServerPrefix(doc) ?: "https://ids.hit.edu.cn/authserver"
+        val url = "$serverPrefix/reAuthCheck/reAuthLogin.do"
+        var req = session.newRequest(url)
+            .data("dynamicCode", code)
+            .data("reAuthType", "3")
+        params["isMultifactor"]?.let { req = req.data("isMultifactor", it) }
+        params["service"]?.let { req = req.data("service", it) }
+        params["reAuthUserId"]?.let { req = req.data("reAuthUserId", it) }
+        params["isSleepAccount"]?.let { req = req.data("isSleepAccount", it) }
+        params["ipAnomaly"]?.let { req = req.data("ipAnomaly", it) }
+        return req.method(Connection.Method.POST).execute()
+    }
+
+    private fun extractServerPrefix(doc: Document): String? {
+        for (script in doc.select("script")) {
+            val data = script.data().ifEmpty { script.html() }
+            val m = Regex("serverPrefix\\s*=\\s*\"([^\"]+)\"").find(data)
+            if (m != null) return m.groupValues[1]
+        }
+        return null
+    }
+
+    private fun extractReAuthParams(doc: Document): Map<String, String> {
+        var raw: String? = null
+        for (script in doc.select("script")) {
+            val data = script.data().ifEmpty { script.html() }
+            if (data.contains("var reAuthParams")) {
+                raw = data
+                break
+            }
+        }
+        if (raw == null) return emptyMap()
+        val start = raw.indexOf("var reAuthParams")
+        if (start < 0) return emptyMap()
+        val braceStart = raw.indexOf("{", start)
+        val braceEnd = raw.indexOf("};", braceStart)
+        if (braceStart < 0 || braceEnd < 0) return emptyMap()
+        val obj = raw.substring(braceStart + 1, braceEnd)
+        val map = mutableMapOf<String, String>()
+        val regex = Regex("\"([^\"]+)\"\\s*:\\s*(\"([^\"]*)\"|true|false|null|\\d+)")
+        for (m in regex.findAll(obj)) {
+            val key = m.groupValues[1]
+            val rawVal = m.groupValues[2]
+            val value = if (rawVal.startsWith("\"")) m.groupValues[3] else rawVal
+            if (value != "null") {
+                map[key] = value
+            }
+        }
+        return map
+    }
+
+    private fun extractErrorFromResponse(resp: Connection.Response): String? {
+        return try {
+            val doc = resp.parse()
+            val submitErr = doc.selectFirst(".reauth_error_submit")?.text()?.trim()
+            if (!submitErr.isNullOrEmpty()) return submitErr
+            val fieldErr = doc.selectFirst(".reauth_error")?.text()?.trim()
+            if (!fieldErr.isNullOrEmpty()) return fieldErr
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun summarizeForms(doc: Document): String {
+        val summaries = mutableListOf<String>()
+        for (form in doc.select("form")) {
+            val action = form.attr("action")
+            val names = form.select("input[name]").map { it.attr("name") }.distinct()
+            summaries.add("action=$action inputs=${names.joinToString(",")}")
+        }
+        return summaries.joinToString(" | ").ifEmpty { "none" }
+    }
+
+    private fun extractRedirectUrl(doc: Document): String? {
+        val meta = doc.selectFirst("meta[http-equiv=refresh]")
+        if (meta != null) {
+            val content = meta.attr("content")
+            val m = Regex("url=([^;]+)", RegexOption.IGNORE_CASE).find(content)
+            if (m != null) return resolveUrl(doc.baseUri(), m.groupValues[1].trim())
+        }
+        for (script in doc.select("script")) {
+            val data = script.data().ifEmpty { script.html() }
+            val m = Regex("https?://[^\"'\\s]+").find(data)
+            if (m != null) return m.value
+            val m2 = Regex("location\\s*(?:href)?\\s*=\\s*['\"]([^'\"]+)['\"]").find(data)
+            if (m2 != null) return resolveUrl(doc.baseUri(), m2.groupValues[1])
+        }
+        return null
+    }
+
+    private fun resolveUrl(base: String, action: String): String {
+        return try {
+            URI(base).resolve(action).toString()
+        } catch (e: Exception) {
+            action
+        }
     }
 
     init {

@@ -50,7 +50,7 @@
             android:layout_marginStart="16dp"
             android:layout_marginEnd="24dp"
             android:background="@drawable/element_rounded_button_bg_primary"
-            android:text="@string/log_in"
+            android:text="@string/eas_next_step"
             android:textColor="@color/white"
             android:textSize="18sp"
             app:finalCornerAngle="16dp"
@@ -79,7 +79,6 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="24dp"
         android:background="@android:color/transparent"
         android:hint="@string/hint_eas_password"
         android:inputType="textPassword"
@@ -87,6 +86,34 @@
         android:paddingTop="16dp"
         android:paddingBottom="16dp"
         android:singleLine="true" />
+
+    <androidx.appcompat.widget.AppCompatEditText
+        android:id="@+id/otp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        android:background="@android:color/transparent"
+        android:hint="@string/hint_eas_otp"
+        android:inputType="number"
+        android:paddingLeft="8dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:singleLine="true"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/web_login"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        android:text="@string/eas_web_login"
+        android:textColor="?attr/textColorSecondary"
+        android:textSize="14sp"
+        android:visibility="gone" />
 
 </LinearLayout>
 

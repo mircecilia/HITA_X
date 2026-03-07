@@ -2,11 +2,14 @@ package com.stupidtree.hitax.ui.eas.login
 
 import android.app.Activity
 import android.content.DialogInterface
+import android.content.Intent
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.HapticFeedbackConstants
 import android.view.View
+import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.activity.result.contract.ActivityResultContracts
 import com.stupidtree.hitax.R
 import com.stupidtree.hitax.data.repository.EASRepository
 import com.stupidtree.hitax.databinding.DialogBottomEasVerifyBinding
@@ -19,6 +22,13 @@ class PopUpLoginEAS :
 
     var lock = false
     var onResponseListener: OnResponseListener? = null
+    private val webLoginLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                onResponseListener?.onSuccess(this)
+                dismissAllowingStateLoss()
+            }
+        }
 
     override fun getViewModelClass(): Class<LoginEASViewModel> {
         return LoginEASViewModel::class.java
@@ -44,6 +54,10 @@ class PopUpLoginEAS :
                 onResponseListener?.onSuccess(this)
 
             } else {
+                val msg = it.message
+                if (!msg.isNullOrBlank()) {
+                    Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
+                }
                 binding?.buttonLogin?.postDelayed({
                     binding?.buttonLogin?.revertAnimation()
                 }, 600)
@@ -53,11 +67,11 @@ class PopUpLoginEAS :
         binding?.buttonLogin?.setOnClickListener {
             if (isFormValid()) {
                 it.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                binding?.buttonLogin?.startAnimation()
-                viewModel.startLogin(
-                    binding?.username?.text.toString(),
-                    binding?.password?.text.toString()
-                )
+                val intent = Intent(requireContext(), EASWebLoginActivity::class.java)
+                intent.putExtra(EASWebLoginActivity.EXTRA_USERNAME, binding?.username?.text.toString())
+                intent.putExtra(EASWebLoginActivity.EXTRA_PASSWORD, binding?.password?.text.toString())
+                intent.putExtra(EASWebLoginActivity.EXTRA_AUTO_SUBMIT, false)
+                webLoginLauncher.launch(intent)
             }
         }
         val textWatcher = object : TextWatcher {

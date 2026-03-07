@@ -14,6 +14,9 @@
     <string name="date_format_with_prefix">"%s %s"</string>
     <string name="hint_eas_username">统一身份认证账号</string>
     <string name="hint_eas_password">密码</string>
+    <string name="hint_eas_otp">短信验证码（可选）</string>
+    <string name="eas_web_login">使用网页登录（短信/2FA）</string>
+    <string name="eas_next_step">下一步</string>
     <string name="hint_eas_login">请在校园内网环境下登录</string>
     <string name="login">登录</string>
     <string name="import_timetable">导入课表</string>

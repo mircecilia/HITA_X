@@ -22,7 +22,7 @@ class LoginEASViewModel(application: Application) : AndroidViewModel(application
     val loginResultLiveData:LiveData<DataState<Boolean>>
         get() {
             return  loginController.switchMap{
-                return@switchMap easRepository.login(it.username,it.password)
+                return@switchMap easRepository.login(it.username,it.password,it.code)
             }
         }
 
@@ -31,8 +31,8 @@ class LoginEASViewModel(application: Application) : AndroidViewModel(application
      * 方法区
      */
 
-    fun startLogin(username:String,password:String){
-        loginController.value = LoginTrigger.getActioning(username,password,null)
+    fun startLogin(username:String,password:String,code:String?){
+        loginController.value = LoginTrigger.getActioning(username,password,code)
     }
 
 }

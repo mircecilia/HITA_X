@@ -91,6 +91,7 @@
         <activity android:name=".ui.eas.score.ScoreInquiryActivity" />
         <activity android:name=".ui.eas.imp.ImportTimetableActivity" />
         <activity android:name=".ui.eas.classroom.EmptyClassroomActivity" />
+        <activity android:name=".ui.eas.login.EASWebLoginActivity" />
         <activity android:name=".ui.profile.ProfileActivity" />
         <activity android:name=".ui.eas.exam.ExamActivity" />
         <activity android:name=".ui.about.ActivityAbout" />

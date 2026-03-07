@@ -35,13 +35,29 @@ class EASRepository internal constructor(application: Application) {
     /**
      * 进行登录
      */
-    fun login(username: String, password: String): LiveData<DataState<Boolean>> {
-        return easService.login(username, password, null).map {
+    fun login(username: String, password: String, code: String?): LiveData<DataState<Boolean>> {
+        return easService.login(username, password, code).map {
             if (it.state == DataState.STATE.SUCCESS) {
                 it.data?.let { it1 -> easPreferenceSource.saveEasToken(it1) }
                 return@map DataState(true, DataState.STATE.SUCCESS)
             }
-            return@map DataState(false, it.state)
+            val res = DataState(false, it.state)
+            res.message = it.message
+            return@map res
+        }
+    }
+
+    fun loginWithCookies(cookies: HashMap<String, String>): LiveData<DataState<Boolean>> {
+        val token = EASToken()
+        token.cookies = cookies
+        return easService.loginCheck(token).switchMap {
+            if (it.state == DataState.STATE.SUCCESS && it.data?.first == true) {
+                easPreferenceSource.saveEasToken(it.data!!.second)
+                return@switchMap MutableLiveData(DataState(true, DataState.STATE.SUCCESS))
+            }
+            val res = DataState(false, it.state)
+            res.message = it.message
+            return@switchMap MutableLiveData(res)
         }
     }
 
