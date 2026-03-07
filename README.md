@@ -1,6 +1,6 @@
 # HITA课表
 <!--  [![standard-readme compliant](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-%E5%8D%8E%E4%B8%BA%E5%BA%94%E7%94%A8%E5%B8%82%E5%9C%BA-red?style=flat-square)](https://appstore.huawei.com/app/C101988835) [![standard-readme compliant](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-%E5%B0%8F%E7%B1%B3%E5%BA%94%E7%94%A8%E5%95%86%E5%BA%97-orange?style=flat-square)](http://app.mi.com/details?id=com.stupidtree.hita) [![standard-readme compliant](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-%E9%85%B7%E5%AE%89%E5%B8%82%E5%9C%BA-green?style=flat-square)](https://www.coolapk.com/apk/282615) -->
-[App下载](https://github.com/StupidTrees/HITA_X/tree/master/release/app-release.apk)
+[App下载](https://github.com/mircecilia/HITA_X/tree/master/release)
 
 IOS端请联系作者 2593475337@qq.com
 
