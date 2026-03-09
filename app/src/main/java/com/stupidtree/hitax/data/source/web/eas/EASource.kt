@@ -31,7 +31,7 @@ import java.util.Locale
 
 class EASource internal constructor() : EASService {
     private val defaultRequestHeader: MutableMap<String, String>
-    private val timeout = 5000
+    private val timeout = 15000
     private val hostName = "http://jw.hitsz.edu.cn"
 
 

@@ -218,7 +218,7 @@ class TimetableFragment :
         fun setSingleTitle(string: String)
     }
 
-    private fun scrollToDate(date: Long) {
+    fun scrollToDate(date: Long) {
         val start = Calendar.getInstance()
         start.timeInMillis = date
         start.firstDayOfWeek = Calendar.MONDAY

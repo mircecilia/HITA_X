@@ -35,6 +35,9 @@ import com.stupidtree.style.ThemeTools
 import com.stupidtree.style.base.BaseActivity
 import com.stupidtree.style.base.BaseTabAdapter
 import com.stupidtree.style.widgets.PopUpText
+import com.stupidtree.style.widgets.PopUpCheckableList
+import com.stupidtree.hitax.data.repository.TimetableRepository
+import com.stupidtree.hitax.data.model.timetable.Timetable
 import me.ibrahimsn.lib.OnItemSelectedListener
 
 /**
@@ -50,6 +53,8 @@ class MainActivity : BaseActivity<MainViewModel, ActivityMainBinding>(),
     private var drawerNickname: TextView? = null
     private var drawerUsername: TextView? = null
     private var drawerHeader: ViewGroup? = null
+    private var timetableFragment: TimetableFragment? = null
+    private var allTimetables: List<Timetable> = emptyList()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setSupportActionBar(binding.toolbar)
@@ -154,7 +159,7 @@ class MainActivity : BaseActivity<MainViewModel, ActivityMainBinding>(),
             override fun initItem(position: Int): Fragment {
                 return when (position) {
                     0 -> FragmentTimeLine()
-                    1 -> TimetableFragment()
+                    1 -> TimetableFragment().also { timetableFragment = it }
                     else -> NavigationFragment()
                 }
             }
@@ -227,6 +232,20 @@ class MainActivity : BaseActivity<MainViewModel, ActivityMainBinding>(),
             PopupAddEvent().show(supportFragmentManager, "add_event")
         }
 
+        binding.timetableNameCard.setOnClickListener {
+            if (allTimetables.isEmpty()) return@setOnClickListener
+            val titles = allTimetables.map { it.name ?: getString(R.string.default_timetable_name) }
+            PopUpCheckableList<Timetable>()
+                .setTitle(getString(R.string.pick_import_term))
+                .setListData(titles, allTimetables)
+                .setOnConfirmListener(object : PopUpCheckableList.OnConfirmListener<Timetable> {
+                    override fun OnConfirm(title: String?, key: Timetable) {
+                        timetableFragment?.scrollToDate(key.startTime.time)
+                    }
+                })
+                .show(supportFragmentManager, "tt_pick")
+        }
+
         binding.switchTheme.setOnClickListener {
             ThemeTools.switchTheme(getThis())
         }
@@ -265,6 +284,10 @@ class MainActivity : BaseActivity<MainViewModel, ActivityMainBinding>(),
                 drawerAvatar?.setImageResource(R.drawable.place_holder_avatar)
                 drawerHeader?.setOnClickListener { ActivityUtils.startWelcomeActivity(getThis()) }
             }
+        }
+
+        TimetableRepository.getInstance(application).getTimetables().observe(this) {
+            allTimetables = it ?: emptyList()
         }
     }
 

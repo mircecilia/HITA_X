@@ -56,8 +56,10 @@ class EASWebLoginActivity : AppCompatActivity() {
         binding.webview.settings.mixedContentMode =
             WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         binding.webview.settings.javaScriptCanOpenWindowsAutomatically = true
-        binding.webview.settings.userAgentString =
-            "Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36"
+        // Use system default UA to avoid "outdated browser" warnings.
+        // If needed, you can bump the Chrome version here.
+        val defaultUa = WebSettings.getDefaultUserAgent(this)
+        binding.webview.settings.userAgentString = defaultUa
 
         binding.webview.webChromeClient = WebChromeClient()
 

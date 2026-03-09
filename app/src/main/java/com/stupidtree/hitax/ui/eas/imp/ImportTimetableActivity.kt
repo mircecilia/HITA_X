@@ -158,7 +158,11 @@ class ImportTimetableActivity :
                 binding.buttonImport, it.state == DataState.STATE.SUCCESS,
                 successStr = R.string.import_success, failStr = R.string.import_failed
             )
-            //通知小组件
+            if (it.state != DataState.STATE.SUCCESS) {
+                val msg = it.message ?: getString(R.string.import_failed)
+                android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()
+            }
+            //通知小组�?
             WidgetUtils.sendRefreshToAll(this)
 //            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
 //                binding.buttonImport.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
@@ -184,7 +188,7 @@ class ImportTimetableActivity :
     }
 
     /**
-     * 初始化课表结构列表
+     * 初始化课表结构列�?
      */
     private fun initList() {
         scheduleStructureAdapter = TimetableStructureListAdapter(getThis(), mutableListOf())

@@ -283,7 +283,7 @@ class EASRepository internal constructor(application: Application) {
                         importTimetableLiveData.postValue(DataState(false, DataState.STATE.SUCCESS))
                     }.start()
                 } else {
-                    importTimetableLiveData.value = DataState(DataState.STATE.FETCH_FAILED)
+                    importTimetableLiveData.value = DataState(it.state, it.message)
                 }
             }
         } else {
